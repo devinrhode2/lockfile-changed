@@ -1,23 +1,38 @@
 import crypto from 'crypto';
 import fs from 'fs';
 
-export const getPackageHash = (packagePath: string): string => {
+export const getPackageHash = (lockFilePath: string): string => {
     const hashSum = crypto.createHash('md5');
-    const lockFilePath = packagePath.replace('package.json', 'yarn.lock');
-    let contents;
+
+    const packagePath = lockFilePath.replace('yarn.lock', 'package.json');
+
+    let packageJson;
     try {
-        contents = fs.readFileSync(lockFilePath, 'utf-8');
+        packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf-8'));
+    } catch (e) {
+        console.error('cant read or parse ' + packagePath);
+        throw e;
+    }
+
+    let yarnLockContents;
+    try {
+        yarnLockContents = fs.readFileSync(lockFilePath, 'utf-8');
     } catch (e) {
         console.error('cant read ' + lockFilePath);
         throw e;
     }
-    // const packageBlob = JSON.parse(contents);
 
-    // const dependencies = {
-    //     dependencies: packageBlob['dependencies'] || {},
-    //     devDependencies: packageBlob['devDependencies'] || {},
-    // };
-    // const depsJson = JSON.stringify(dependencies);
-    hashSum.update(Buffer.from(contents));
+    hashSum.update(
+        Buffer.from(
+            JSON.stringify({
+                dependencies: packageJson['dependencies'] || {},
+                devDependencies: packageJson['devDependencies'] || {},
+                peerDependencies: packageJson['peerDependencies'] || {},
+                optionalDependencies: packageJson['optionalDependencies'] || {},
+                yarnLockContents: yarnLockContents,
+            }),
+        ),
+    );
+
     return hashSum.digest('hex');
 };
